@@ -9,8 +9,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiSurface from '@/components/ui/UiSurface.vue';
 import { useTelegramBackButton } from '@/composables/useTelegramBackButton';
 import { findCard } from '@/constants/deck';
-import { env } from '@/lib/env';
-import { dealRandomField, judgeAnswer, type JudgeVerdict } from '@/lib/yandexJudge';
+import { dealRandomField, hasYandexJudgeCredentials, judgeAnswer, type JudgeVerdict } from '@/lib/yandexJudge';
 import type { FieldSlot } from '@/types/game';
 
 /**
@@ -24,7 +23,13 @@ const isLoading = ref(false);
 const error = ref('');
 const verdict = ref<JudgeVerdict | null>(null);
 
-const hasCredentials = computed(() => Boolean(env.yandexApiKey && env.yandexFolderId));
+const hasCredentials = computed(() => hasYandexJudgeCredentials());
+const credentialsHint = computed(() => {
+  if (import.meta.env.PROD) {
+    return 'На Vercel нужны env: `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `VITE_YANDEX_FOLDER_ID`.';
+  }
+  return 'В `.env` нет `VITE_YANDEX_API_KEY` / `VITE_YANDEX_FOLDER_ID`. Добавь и перезапусти `npm run dev`.';
+});
 const canSubmit = computed(() => Boolean(answer.value.trim()) && !isLoading.value && !verdict.value && hasCredentials.value);
 
 function goBack() {
@@ -90,7 +95,7 @@ onMounted(startRound);
         padding="tight"
         class="text-sm font-bold text-white"
       >
-        В `.env` нет `VITE_YANDEX_API_KEY` / `VITE_YANDEX_FOLDER_ID`. Добавь и перезапусти `npm run dev`.
+        {{ credentialsHint }}
       </UiSurface>
 
       <GameField

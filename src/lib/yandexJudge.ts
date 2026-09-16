@@ -129,24 +129,41 @@ function parseVerdict(raw: string): JudgeVerdict {
   };
 }
 
+export function hasYandexJudgeCredentials(): boolean {
+  const folderId = env.yandexFolderId.trim();
+  if (!folderId) return false;
+  if (import.meta.env.PROD) return true;
+  return Boolean(env.yandexApiKey.trim());
+}
+
+function resolveYandexEndpoint(): string {
+  if (import.meta.env.PROD) return '/api/yandex/v1/chat/completions';
+  return '/yandex-ai/v1/chat/completions';
+}
+
+function resolveYandexHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!import.meta.env.PROD) {
+    headers.Authorization = `Api-Key ${env.yandexApiKey}`;
+    headers['x-folder-id'] = env.yandexFolderId;
+  }
+  return headers;
+}
+
 /**
- * Вызов YandexGPT с браузера. В dev идёт через прокси Vite `/yandex-ai`,
- * потому что api.cloud.yandex.net не отдаёт CORS.
+ * Вызов YandexGPT с браузера.
+ * Dev: Vite-прокси `/yandex-ai` + ключи из `.env`.
+ * Prod (Vercel): serverless `/api/yandex/...`, ключи в env проекта.
  */
 export async function judgeAnswer(field: FieldSlot[], answer: string): Promise<JudgeVerdict> {
-  const apiKey = env.yandexApiKey;
-  const folderId = env.yandexFolderId;
-  if (!apiKey || !folderId) {
-    throw new Error('Нет VITE_YANDEX_API_KEY или VITE_YANDEX_FOLDER_ID в .env');
+  const folderId = env.yandexFolderId.trim();
+  if (!hasYandexJudgeCredentials()) {
+    throw new Error('Нет настроек YandexGPT: folder id + api key (локально) или folder id (на Vercel)');
   }
 
-  const res = await fetch('/yandex-ai/v1/chat/completions', {
+  const res = await fetch(resolveYandexEndpoint(), {
     method: 'POST',
-    headers: {
-      Authorization: `Api-Key ${apiKey}`,
-      'x-folder-id': folderId,
-      'Content-Type': 'application/json',
-    },
+    headers: resolveYandexHeaders(),
     body: JSON.stringify({
       model: `gpt://${folderId}/yandexgpt/latest`,
       temperature: 0,
