@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+@config '../../../tailwind.config.js';
+
+/*
+  Дизайн-токены перенесены с igragolovoy.ru.
+  Стиль нео-брутализм: плотные чёрные обводки и жёсткие смещённые тени без размытия.
+*/
+@theme {
+  /* Палитра */
+  --color-cream: #fbf7ef;
+  --color-cream-2: #f3ecdd;
+  --color-cream-3: #e8ddc6;
+  --color-ink: #16130f;
+  --color-ink-soft: #57504a;
+  --color-ink-muted: #8b8279;
+  --color-pitch: #3aaa35;
+  --color-pitch-dark: #2d8629;
+  --color-sky: #4a7fc0;
+  --color-sky-dark: #3a659b;
+  --color-flame: #ff6a2b;
+  --color-flame-dark: #e0521a;
+  --color-grape: #7a54c9;
+  --color-grape-dark: #6241a8;
+  --color-lemon: #ffd23f;
+
+  /* Типографика */
+  --font-sans: 'Onest', system-ui, -apple-system, sans-serif;
+  --font-display: 'Unbounded', 'Onest', sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, monospace;
+
+  /* Скругления */
+  --radius-brand: 20px;
+  --radius-card: 14px;
+  --radius-pill: 100px;
+
+  /* Жёсткие тени */
+  --shadow-hard-xs: 2px 2px 0 var(--color-ink);
+  --shadow-hard-sm: 3px 3px 0 var(--color-ink);
+  --shadow-hard: 4px 4px 0 var(--color-ink);
+  --shadow-hard-md: 6px 6px 0 var(--color-ink);
+  --shadow-hard-lg: 10px 10px 0 var(--color-ink);
+}
+
+/*
+  Ширина мобильного контейнера мини-приложения и отступы под системные зоны
+  Telegram. Значения --tg-* проставляются из lib/telegram.ts.
+*/
+@theme {
+  --spacing-shell: 440px;
+  --spacing-bottom-nav: 68px;
+}
+
+@layer base {
+  :root {
+    --tg-safe-top: 0px;
+    --tg-safe-bottom: 0px;
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  /* Обводка нео-брутализма: везде одинаковая толщина линии. */
+  .border-ink-line {
+    border-width: 2.4px;
+    border-style: solid;
+    border-color: var(--color-ink);
+  }
+
+  /* Прижатие элемента к тени при нажатии — фирменный «физический» отклик. */
+  .press-hard {
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+
+  .press-hard:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: var(--shadow-hard-xs);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Фактура футбольного поля для акцентных блоков. */
+  .bg-pitch-stripes {
+    background-image: repeating-linear-gradient(
+      115deg,
+      rgb(255 255 255 / 0.06) 0px,
+      rgb(255 255 255 / 0.06) 22px,
+      transparent 22px,
+      transparent 44px
+    );
+  }
+}
