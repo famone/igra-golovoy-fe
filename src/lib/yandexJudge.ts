@@ -137,7 +137,7 @@ export function hasYandexJudgeCredentials(): boolean {
 }
 
 function resolveYandexEndpoint(): string {
-  if (import.meta.env.PROD) return '/api/yandex/v1/chat/completions';
+  if (import.meta.env.PROD) return '/api/yandex/completions';
   return '/yandex-ai/v1/chat/completions';
 }
 
