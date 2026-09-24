@@ -155,9 +155,17 @@ onMounted(startRound);
         >
           {{ verdict.canonicalName }}
         </p>
-        <p class="mt-1 text-sm text-white/90">
-          {{ verdict.reason }}
+        <p
+          v-if="verdict.unverifiedName"
+          class="mt-1 text-xs text-white/80"
+        >
+          имя не подтверждено
         </p>
+        <ul class="mt-2 space-y-1 text-sm text-white/90">
+          <li>Позиция: {{ verdict.checks.position.evidence }} {{ verdict.checks.position.pass ? '✓' : '✗' }}</li>
+          <li>Страна: {{ verdict.checks.geography.evidence }} {{ verdict.checks.geography.pass ? '✓' : '✗' }}</li>
+          <li>Факт: {{ verdict.checks.fact.evidence }} {{ verdict.checks.fact.pass ? '✓' : '✗' }}</li>
+        </ul>
       </UiSurface>
 
       <UIButton

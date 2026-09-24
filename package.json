@@ -16,6 +16,7 @@
     "lint": "eslint \"src/**/*.{js,ts,vue}\"",
     "lint:fix": "eslint \"src/**/*.{js,ts,vue}\" --fix",
     "test": "vitest run",
+    "scan:combos": "vite-node scripts/scan-combos.ts",
     "test:watch": "vitest",
     "prepare": "husky"
   },
