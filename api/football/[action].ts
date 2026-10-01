@@ -1,51 +1,62 @@
-export const config = {
-  runtime: 'edge',
-};
-
-function footballKey(): string {
-  return process.env.FOOTBALL_API_KEY ?? '';
+interface FootballRequest {
+  method?: string;
+  query: Record<string, string | string[] | undefined>;
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'GET') {
-    return Response.json({ success: false, message: 'Method not allowed' }, { status: 405 });
+interface FootballResponse {
+  status: (code: number) => FootballResponse;
+  json: (body: unknown) => void;
+  send: (body: string) => void;
+  setHeader: (name: string, value: string) => void;
+}
+
+function queryValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0]?.trim() ?? '';
+  return value?.trim() ?? '';
+}
+
+export default async function handler(req: FootballRequest, res: FootballResponse) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ success: false, message: 'Method not allowed' });
+    return;
   }
 
-  const key = footballKey();
+  const key = process.env.FOOTBALL_API_KEY ?? '';
   if (!key) {
-    return Response.json({ success: false, message: 'Нет FOOTBALL_API_KEY' }, { status: 500 });
+    res.status(500).json({ success: false, message: 'Нет FOOTBALL_API_KEY' });
+    return;
   }
 
-  const url = new URL(request.url);
-  const action = url.pathname.split('/').filter(Boolean).pop();
+  const action = queryValue(req.query.action);
   const upstream = new URL('https://live-football-api.com/api/v1/player_search');
   upstream.searchParams.set('api_key', key);
   upstream.searchParams.set('lang', 'ru');
 
   if (action === 'search') {
-    const q = url.searchParams.get('q')?.trim() ?? '';
+    const q = queryValue(req.query.q);
     if (q.length < 2) {
-      return Response.json({ success: true, data: { players: [] } });
+      res.status(200).json({ success: true, data: { players: [] } });
+      return;
     }
     upstream.pathname = '/api/v1/player_search';
     upstream.searchParams.set('q', q);
   }
   else if (action === 'player') {
-    const playerId = url.searchParams.get('player_id')?.trim() ?? '';
+    const playerId = queryValue(req.query.player_id);
     if (!playerId) {
-      return Response.json({ success: false, message: 'Нет player_id' }, { status: 400 });
+      res.status(400).json({ success: false, message: 'Нет player_id' });
+      return;
     }
     upstream.pathname = '/api/v1/player';
     upstream.searchParams.set('player_id', playerId);
   }
   else {
-    return Response.json({ success: false, message: 'Unknown action' }, { status: 404 });
+    res.status(404).json({ success: false, message: 'Unknown action' });
+    return;
   }
 
   const remote = await fetch(upstream);
   const body = await remote.text();
-  return new Response(body, {
-    status: remote.status,
-    headers: { 'content-type': remote.headers.get('content-type') ?? 'application/json' },
-  });
+  res.status(remote.status).setHeader('content-type', remote.headers.get('content-type') ?? 'application/json');
+  res.send(body);
 }
