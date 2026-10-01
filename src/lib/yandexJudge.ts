@@ -1,6 +1,7 @@
 import { FACT_CARDS, GEOGRAPHY_CARDS, POSITION_CARDS, findCard } from '@/constants/deck';
 import { DEAD_COMBOS } from '@/constants/combos';
 import { env } from '@/lib/env';
+import type { PlayerProfile } from '@/lib/footballApi';
 import type { CardInstance, FactCard, GeographyCard, PositionCard } from '@/types/cards';
 import type { FieldSlot } from '@/types/game';
 
@@ -78,18 +79,29 @@ The Best FIFA, награды лиг и прочие призы не счита�
 «Играл в пяти клубах и более» — пять и более взрослых клубов
 за карьеру, аренды считаются отдельными клубами.
 
-═══ ПРЕЗУМПЦИЯ В ПОЛЬЗУ ИГРОКА ═══
-Если по карте нет однозначных данных, но ответ выглядит
-правдоподобным — ставь pass:true и confidence:"low".
-Судью зовут разрешить спор, а не искать повод отказать.
+═══ ПРОФИЛЬ — ЕДИНСТВЕННЫЙ ИСТОЧНИК ═══
+В user приходит player: профиль Live Football API.
+Смотри только его. Не добавляй клубы, трофеи, гражданство и голы из памяти.
+Нет подтверждения в профиле → pass:false, evidence ровно «в профиле нет», confidence:"low".
 
-Если футболист тебе НЕ ИЗВЕСТЕН — не отказывай автоматически.
-Ставь confidence:"low" и pass:true по тем картам, которые
-не можешь опровергнуть.
-
-Исключение — очевидное несоответствие, здесь pass:false:
-вратарь на карте полевого игрока, итальянец на карте Бразилии,
-игрок 20 лет на карте «Старше 30 лет».`;
+Как читать профиль:
+- Позиция: поле position, профиль на русском.
+  «Вратарь» → только карта «Вратарь».
+  «Защитник» → «Защитник».
+  «Полузащитник» → «Полузащитник».
+  «Нападающий» → «Нападающий».
+  Другое амплуа не выдумывай: в профиле одна основная позиция.
+- География: nationality и названия сборных из internationals_career.
+  Страна карты = гражданство, не страна клуба.
+  Континент — по гражданству.
+- «Играл в стране»: клуб или лига из clubs_career этой страны.
+  is_loaned=true тоже считается. Лига другой страны не подходит.
+- «Старше 30 лет» / «Младше 25 лет»: возраст на дату today от birthdate, включительно.
+- «Играл в пяти клубах и более»: число записей clubs_career. Аренда — отдельный клуб.
+- «Играл в трёх лигах и более»: чемпионаты минимум трёх стран по leagues в clubs_career.
+- «Закончил карьеру»: current_team пустой. Если клуб указан — карта не проходит.
+- Трофеи, капитанство, гол в финале и Золотой мяч в профиле не приходят.
+  Этих карт в JSON нет → pass:false, «в профиле нет». Не достраивай по памяти.`;
 
 export const NAME_RECOGNITION_PROMPT = `Ты распознаёшь имена футболистов. Верни ТОЛЬКО JSON.
 
@@ -121,7 +133,9 @@ export const NAME_RECOGNITION_PROMPT = `Ты распознаёшь имена �
 
 Больше ничего не делай. Не суди, не проверяй факты, не комментируй.`;
 
-export const JUDGE_SYSTEM_PROMPT = `Ты судья настольной игры «Игра Головой». Верни ТОЛЬКО JSON.
+export const JUDGE_SYSTEM_PROMPT = `Ты судья настольной игры «Игра Головой».
+Игрок уже выбран. Решай только по полю player в сообщении пользователя.
+Верни ТОЛЬКО JSON.
 
 {
   "valid": true|false,
@@ -143,30 +157,19 @@ valid = true ТОЛЬКО если pass=true во всех трёх checks.
 ${JUDGE_RULES}
 
 ═══ ПРИМЕРЫ ═══
-Защитник + Северная Америка + Выиграл еврокубок + «Альфонсо Дэвис»
+Нападающий + карта «Евразия» + Играл в Англии.
+player.position=Нападающий, nationality=Норвегия, clubs содержат «Манчестер Сити» и «Премьер-лига».
 → valid:true
-  position: pass:true, «левый защитник»
-  geography: pass:true, «гражданство Канады»
-  fact: pass:true, «Бавария, Лига чемпионов 2019/20»
+  position: pass:true, «Нападающий»
+  geography: pass:true, «гражданство Норвегии»
+  fact: pass:true, «Манчестер Сити, Премьер-лига»
 
-Защитник + Нидерланды + Играл во Франции + «Ян Пауль ван Хекке»
+Защитник + Аргентина + Обладатель Золотого мяча.
+player.position=Нападающий, nationality=Аргентина, трофеев в профиле нет.
 → valid:false
-  position: pass:true, «центральный защитник»
-  geography: pass:true, «гражданство Нидерландов»
-  fact: pass:false, «во французских клубах не выступал»
-
-Нападающий + Португалия + Капитан + «Луиш Фигу»
-→ valid:true
-  position: pass:true, «правый вингер, играл ПФА»
-  geography: pass:true, «гражданство Португалии»
-  fact: pass:true, «капитан сборной Португалии»
-
-Нападающий + Аргентина + Обладатель Золотого мяча + «Лионель Месси»
-→ valid:true
-
-Защитник + Аргентина + Обладатель Золотого мяча + «Лионель Месси»
-→ valid:false
-  position: pass:false, «нападающий и атакующий полузащитник»`;
+  position: pass:false, «позиция Нападающий»
+  geography: pass:true, «гражданство Аргентины»
+  fact: pass:false, «в профиле нет»`;
 
 export const SCAN_PLAYERS_PROMPT = `Подбери реальных футболистов под комбинацию карт настолки «Игра Головой».
 Верни ТОЛЬКО JSON {"players": ["Имя Фамилия"]}.
@@ -477,7 +480,40 @@ export function dealRandomField(previous?: FieldSlot[]): FieldSlot[] {
   return next;
 }
 
-export function fieldToJudgePayload(field: FieldSlot[], player: string) {
+export function playerDisplayName(profile: PlayerProfile): string {
+  const full = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+  return full || profile.name;
+}
+
+/** В модель уходит карьера без логотипов и фото. */
+export function compactPlayer(profile: PlayerProfile) {
+  const clubs = (profile.clubs_career ?? []).map((entry) => {
+    const leagues = new Set<string>();
+    for (const season of entry.seasons ?? []) {
+      for (const competition of season.competitions ?? []) {
+        if (competition.league?.name) leagues.add(competition.league.name);
+      }
+    }
+    return {
+      team: entry.team?.name ?? '',
+      from: entry.date_start ?? '',
+      loan: Boolean(entry.is_loaned),
+      leagues: [...leagues],
+    };
+  });
+
+  return {
+    name: playerDisplayName(profile),
+    position: profile.position ?? '',
+    nationality: profile.nationality ?? '',
+    birthdate: profile.birthdate ?? '',
+    current_team: profile.current_team?.name ?? '',
+    clubs,
+    national_teams: (profile.internationals_career ?? []).map((entry) => entry.team?.name ?? '').filter(Boolean),
+  };
+}
+
+export function fieldToJudgePayload(field: FieldSlot[], profile: PlayerProfile) {
   const position = findCard(field.find((slot) => slot.type === 'position')!.card.cardId) as PositionCard;
   const geography = findCard(field.find((slot) => slot.type === 'geography')!.card.cardId) as GeographyCard;
   const fact = findCard(field.find((slot) => slot.type === 'fact')!.card.cardId) as FactCard;
@@ -489,7 +525,7 @@ export function fieldToJudgePayload(field: FieldSlot[], player: string) {
       geography: geography.title,
       fact: fact.title,
     },
-    player: player.trim(),
+    player: compactPlayer(profile),
   };
 }
 
@@ -561,58 +597,32 @@ async function callModel(options: {
 }
 
 /**
- * Два вызова: lite узнаёт имя, Pro судит по картам.
- * Сбой любого вызова не отказывает игроку.
+ * Один вызов Pro: игрок уже выбран из поиска, судья смотрит только его профиль.
+ * Сбой модели не превращается в отказ.
  */
-export async function judgeAnswer(field: FieldSlot[], answer: string): Promise<JudgeVerdict> {
+export async function judgeAnswer(field: FieldSlot[], profile: PlayerProfile): Promise<JudgeVerdict> {
   const folderId = env.yandexFolderId.trim();
   if (!hasYandexJudgeCredentials()) {
     throw new Error('Нет настроек YandexGPT: folder id + api key (локально) или folder id (на Vercel)');
   }
 
-  const rawAnswer = answer.trim();
-  let canonicalName = rawAnswer;
-  let unverifiedName = false;
-
-  try {
-    const recognizedRaw = await callModel({
-      model: `gpt://${folderId}/yandexgpt-lite/latest`,
-      system: NAME_RECOGNITION_PROMPT,
-      user: JSON.stringify({ answer: rawAnswer }),
-      schemaName: 'player_name',
-      schema: NAME_RESPONSE_SCHEMA,
-      maxTokens: 60,
-      timeoutMs: 2000,
-    });
-    const recognized = parseNameRecognition(recognizedRaw);
-    if (!recognized) {
-      unverifiedName = true;
-    }
-    else {
-      canonicalName = recognized.canonicalName;
-      unverifiedName = !recognized.recognized;
-    }
-  }
-  catch (error) {
-    console.error('Судья: распознавание имени не удалось', error);
-    unverifiedName = true;
-  }
+  const canonicalName = playerDisplayName(profile);
 
   try {
     const verdictRaw = await callModel({
       model: `gpt://${folderId}/yandexgpt/latest`,
       system: JUDGE_SYSTEM_PROMPT,
-      user: JSON.stringify(fieldToJudgePayload(field, canonicalName)),
+      user: JSON.stringify(fieldToJudgePayload(field, profile)),
       schemaName: 'judge_verdict',
       schema: JUDGE_RESPONSE_SCHEMA,
       maxTokens: 220,
-      timeoutMs: 3500,
+      timeoutMs: 8000,
     });
     const verdict = parseVerdict(verdictRaw);
-    return { ...verdict, canonicalName, unverifiedName };
+    return { ...verdict, canonicalName, unverifiedName: false };
   }
   catch (error) {
     console.error('Судья: проверка хода не удалась', error);
-    return technicalFailureVerdict(canonicalName, unverifiedName);
+    return technicalFailureVerdict(canonicalName, false);
   }
 }
