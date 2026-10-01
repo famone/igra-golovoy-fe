@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
         :disabled="isLoading"
         @click="startRound"
       >
-        Новая игра
+        Новая игра 
       </UIButton>
     </div>
   </div>
