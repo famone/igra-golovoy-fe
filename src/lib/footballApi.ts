@@ -42,7 +42,14 @@ const SEARCH_LIMIT = 10;
 
 async function readApi<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal });
-  const body = (await res.json()) as ApiEnvelope<T>;
+  const raw = await res.text();
+  let body: ApiEnvelope<T>;
+  try {
+    body = JSON.parse(raw) as ApiEnvelope<T>;
+  }
+  catch {
+    throw new Error('Поиск вернул не JSON. Проверь, что на Vercel задеплоена функция /api/football и задан FOOTBALL_API_KEY.');
+  }
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Football API ${res.status}`);
   }
