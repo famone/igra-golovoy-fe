@@ -16,6 +16,4 @@ export const env = {
   /** Имитация окружения Telegram при разработке в обычном браузере. */
   mockTelegram: readBoolean(import.meta.env.VITE_MOCK_TELEGRAM, import.meta.env.DEV),
   isDev: import.meta.env.DEV,
-  yandexApiKey: (import.meta.env.VITE_YANDEX_API_KEY as string | undefined) ?? '',
-  yandexFolderId: (import.meta.env.VITE_YANDEX_FOLDER_ID as string | undefined) ?? '',
 };

@@ -35,23 +35,20 @@ function comboKey(positionId: string, geographyId: string, factId: string) {
 }
 
 async function askPlayers(key: string, titles: { position: string; geography: string; fact: string }) {
-  const apiKey = process.env.YANDEX_API_KEY || process.env.VITE_YANDEX_API_KEY;
-  const folderId = process.env.YANDEX_FOLDER_ID || process.env.VITE_YANDEX_FOLDER_ID;
-  if (!apiKey || !folderId) {
-    throw new Error('В .env нет YANDEX_API_KEY / YANDEX_FOLDER_ID');
-  }
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model = (process.env.OPENAI_MODEL || 'gpt-6-luna').trim();
+  if (!apiKey) throw new Error('В .env нет OPENAI_API_KEY');
 
-  const res = await fetch('https://ai.api.cloud.yandex.net/v1/chat/completions', {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Api-Key ${apiKey}`,
-      'x-folder-id': folderId,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: `gpt://${folderId}/yandexgpt/latest`,
-      temperature: 0,
-      max_tokens: 180,
+      model,
+      reasoning_effort: 'low',
+      max_completion_tokens: 400,
       messages: [
         { role: 'system', content: SCAN_PLAYERS_PROMPT },
         { role: 'user', content: JSON.stringify({ combo: key, field: titles }) },
@@ -67,7 +64,7 @@ async function askPlayers(key: string, titles: { position: string; geography: st
     error?: { message?: string };
     choices?: Array<{ message?: { content?: string } }>;
   };
-  if (!res.ok) throw new Error(data.error?.message ?? `YandexGPT ${res.status}`);
+  if (!res.ok) throw new Error(data.error?.message ?? `ChatGPT ${res.status}`);
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error(`Пустой ответ для ${key}`);
   const parsed = JSON.parse(content) as { players?: string[] };

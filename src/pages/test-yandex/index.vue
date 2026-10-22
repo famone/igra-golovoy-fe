@@ -9,13 +9,13 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiSurface from '@/components/ui/UiSurface.vue';
 import { useTelegramBackButton } from '@/composables/useTelegramBackButton';
 import { findCard } from '@/constants/deck';
-import { fetchPlayer, searchPlayers, type PlayerProfile, type PlayerSearchHit } from '@/lib/footballApi';
-import { dealRandomField, hasYandexJudgeCredentials, judgeAnswer, type JudgeVerdict } from '@/lib/yandexJudge';
+import { searchPlayers, type PlayerSearchHit } from '@/lib/footballApi';
+import { dealRandomField, judgeAnswer, type JudgeVerdict } from '@/lib/yandexJudge';
 import type { FieldSlot } from '@/types/game';
 
 /**
- * Песочница судьи: три случайные карты → ответ игрока → YandexGPT → новая раздача.
- * Игрового бэкенда нет, в проде этот экран не использовать: ключ светится во фронте.
+ * Песочница судьи: три случайные карты → имя из поиска → ChatGPT.
+ * Ключи OpenAI и Live Football остаются на сервере.
  */
 const router = useRouter();
 const field = ref<FieldSlot[]>([]);
@@ -28,17 +28,16 @@ const isSearching = ref(false);
 const isLoading = ref(false);
 const error = ref('');
 const verdict = ref<JudgeVerdict | null>(null);
+
+function cardMark(ok: 'yes' | 'no' | 'unsure') {
+  if (ok === 'yes') return '✓';
+  if (ok === 'unsure') return '?';
+  return '✗';
+}
 let searchTimer = 0;
 let searchAbort: AbortController | null = null;
 
-const hasCredentials = computed(() => hasYandexJudgeCredentials());
-const credentialsHint = computed(() => {
-  if (import.meta.env.PROD) {
-    return 'На Vercel нужны env: `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `VITE_YANDEX_FOLDER_ID`.';
-  }
-  return 'В `.env` нет `VITE_YANDEX_API_KEY` / `VITE_YANDEX_FOLDER_ID`. Добавь и перезапусти `npm run dev`.';
-});
-const canSubmit = computed(() => Boolean(selected.value) && !isLoading.value && !verdict.value && hasCredentials.value);
+const canSubmit = computed(() => Boolean(selected.value) && !isLoading.value && !verdict.value);
 
 function onAnswerInput(value: string) {
   answer.value = value;
@@ -122,8 +121,7 @@ async function submit() {
   error.value = '';
   searchOpen.value = false;
   try {
-    const profile: PlayerProfile = await fetchPlayer(player.id);
-    verdict.value = await judgeAnswer(field.value, profile);
+    verdict.value = await judgeAnswer(field.value, player.name);
   }
   catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Не удалось спросить модель';
@@ -155,21 +153,12 @@ onBeforeUnmount(() => {
         <ArrowLeftIcon class="size-4" />
       </UiIconButton>
       <div class="min-w-0 flex-1">
-        <p class="truncate text-sm font-bold">Тест YandexGPT</p>
+        <p class="truncate text-sm font-bold">Тест судьи</p>
         <p class="font-mono text-[10px] text-ink-muted">три карты → судья → новая игра</p>
       </div>
     </header>
 
     <div class="flex flex-1 flex-col gap-4 px-4 py-4">
-      <UiSurface
-        v-if="!hasCredentials"
-        color="flame"
-        padding="tight"
-        class="text-sm font-bold text-white"
-      >
-        {{ credentialsHint }}
-      </UiSurface>
-
       <GameField
         v-if="field.length"
         :key="fieldKey"
@@ -191,7 +180,7 @@ onBeforeUnmount(() => {
           <UiInput
             :model-value="answer"
             label="Футболист"
-            placeholder="начни вводить фамилию на английском"
+            placeholder="фамилия по-русски или латиницей"
             :disabled="Boolean(verdict) || isLoading"
             autocomplete="off"
             @update:model-value="onAnswerInput"
@@ -278,15 +267,21 @@ onBeforeUnmount(() => {
           {{ verdict.canonicalName }}
         </p>
         <p
+          v-if="verdict.born"
+          class="mt-1 text-xs text-white/80"
+        >
+          родился {{ verdict.born }}
+        </p>
+        <p
           v-if="verdict.unverifiedName"
           class="mt-1 text-xs text-white/80"
         >
           имя не подтверждено
         </p>
         <ul class="mt-2 space-y-1 text-sm text-white/90">
-          <li>Позиция: {{ verdict.checks.position.evidence }} {{ verdict.checks.position.pass ? '✓' : '✗' }}</li>
-          <li>Страна: {{ verdict.checks.geography.evidence }} {{ verdict.checks.geography.pass ? '✓' : '✗' }}</li>
-          <li>Факт: {{ verdict.checks.fact.evidence }} {{ verdict.checks.fact.pass ? '✓' : '✗' }}</li>
+          <li>Позиция: {{ verdict.checks.position.evidence }} {{ cardMark(verdict.checks.position.ok) }}</li>
+          <li>Страна: {{ verdict.checks.geography.evidence }} {{ cardMark(verdict.checks.geography.ok) }}</li>
+          <li>Факт: {{ verdict.checks.fact.evidence }} {{ cardMark(verdict.checks.fact.ok) }}</li>
         </ul>
       </UiSurface>
 

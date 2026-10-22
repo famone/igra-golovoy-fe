@@ -3,7 +3,9 @@
   "include": [
     "vite.config.*",
     "vitest.config.*",
-    "eslint.config.*"
+    "eslint.config.*",
+    "api/football/search.ts",
+    "api/openai/completions.ts"
   ],
   "compilerOptions": {
     "noEmit": true,

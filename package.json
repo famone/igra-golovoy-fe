@@ -32,6 +32,7 @@
     "@vuelidate/validators": "^2.0.4",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
+    "iuliia": "^0.8.2",
     "lottie-web": "^5.13.0",
     "pinia": "^2.3.0",
     "tailwind-merge": "^2.6.0",
